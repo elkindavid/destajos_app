@@ -10,18 +10,26 @@ api_bp = Blueprint("api", __name__)
 @api_bp.get("/employees")
 @login_required
 def employees():
-    q = request.args.get("q","")
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify([])
+
     sql = text("""
         SELECT nombreCompleto, apellidoCompleto, numeroDocumento
         FROM GH_Empleados
-        WHERE estado = 'ACTIVO' AND (
-            nombreCompleto LIKE :q OR apellidoCompleto LIKE :q OR CAST(numeroDocumento AS NVARCHAR(50)) LIKE :q
+        WHERE estado = 'ACTIVO' 
+        AND (
+            LOWER(LTRIM(RTRIM(nombreCompleto))) LIKE LOWER(:q)
+            OR LOWER(LTRIM(RTRIM(apellidoCompleto))) LIKE LOWER(:q)
+            OR LOWER(LTRIM(RTRIM(nombreCompleto)) + ' ' + LTRIM(RTRIM(apellidoCompleto))) LIKE LOWER(:q)
+            OR CAST(numeroDocumento AS NVARCHAR(50)) LIKE :q
         )
         ORDER BY nombreCompleto
     """)
+
     rows = db.session.execute(sql, {'q': f'%{q}%'}).mappings().all()
     return jsonify([{
-        'nombre': f"{r['nombreCompleto']} {r['apellidoCompleto']}",
+        'nombre': f"{r['nombreCompleto']} {r['apellidoCompleto']}".strip(),
         'documento': str(r['numeroDocumento'])
     } for r in rows])
 

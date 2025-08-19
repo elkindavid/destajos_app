@@ -83,29 +83,39 @@ window.destajosForm = function(){
       try {
         const q = this.empleado_nombre || this.empleado_documento;
         const res = await fetch(`/api/employees?q=${encodeURIComponent(q)}`);
-        
+
         if (!res.ok) {
           throw new Error(`Error HTTP: ${res.status}`);
         }
 
         const data = await res.json(); 
+        console.log("📥 Respuesta empleados:", data); // 👈 VER QUÉ LLEGA
         this.empleados = data;
 
-        // 🔄 Si ya seleccionó uno, busco y completo el otro campo
+        // Normalizo búsqueda
         if (this.empleado_nombre) {
-          const emp = this.empleados.find(e => e.nombre === this.empleado_nombre);
-          if (emp) this.empleado_documento = emp.documento;
-        }
-        if (this.empleado_documento) {
-          const emp = this.empleados.find(e => e.documento === this.empleado_documento);
-          if (emp) this.empleado_nombre = emp.nombre;
+          const emp = this.empleados.find(e => 
+            e.nombre?.toLowerCase().trim() === this.empleado_nombre.toLowerCase().trim()
+          );
+          if (emp) {
+            this.empleado_documento = emp.documento || emp.cedula; // 👈 soporta ambas llaves
+            return;
+          }
         }
 
+        if (this.empleado_documento) {
+          const emp = this.empleados.find(e => 
+            String(e.documento || e.cedula) === String(this.empleado_documento)
+          );
+          if (emp) {
+            this.empleado_nombre = emp.nombre || emp.Nombre;
+            return;
+          }
+        }
       } catch (err) {
         console.error("⚠️ Error buscando empleado", err);
       }
     },
-
 
     async searchDestajo(){
       const q = this.destajo_text;

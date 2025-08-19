@@ -6,7 +6,7 @@
   <form @submit.prevent="submit()" class="grid md:grid-cols-2 gap-4">
     <div>
       <label class="block text-sm">Empleado (nombre)</label>
-      <input x-model="empleado_nombre" @input.debounce.300="searchEmpleado()" list="listaEmpleados" class="w-full border rounded p-2">
+      <input x-model="empleado_nombre" @input.debounce.300="searchEmpleado()" @change="searchEmpleado()" list="listaEmpleados" class="w-full border rounded p-2">
       <datalist id="listaEmpleados">
         <template x-for="e in empleados" :key="e.documento">
           <option :value="e.nombre"></option>
@@ -15,7 +15,7 @@
     </div>
     <div>
       <label class="block text-sm">Documento</label>
-      <input x-model="empleado_documento" @input.debounce.300="searchEmpleado()" list="listaDocs" class="w-full border rounded p-2">
+      <input x-model="empleado_documento" readonly class="w-full border rounded p-2  bg-gray-100">
       <datalist id="listaDocs">
         <template x-for="e in empleados" :key="'d'+e.documento">
           <option :value="e.documento" x-text="e.documento"></option>
