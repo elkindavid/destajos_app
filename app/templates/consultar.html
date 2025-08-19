@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}Consultar{% endblock %}
+{% block content %}
+<div x-data="consultarView()" class="bg-white rounded-2xl shadow p-4">
+  <h1 class="text-xl font-semibold mb-4">Registros</h1>
+  <div class="grid md:grid-cols-4 gap-4 mb-4">
+    <input placeholder="Documento" x-model="documento" class="border rounded p-2">
+    <input type="date" x-model="desde" class="border rounded p-2">
+    <input type="date" x-model="hasta" class="border rounded p-2">
+    <button @click="buscar()" class="px-4 py-2 bg-sky-600 text-white rounded">Buscar</button>
+  </div>
+  <div class="overflow-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr class="border-b">
+        <th class="text-left p-2">Fecha</th>
+        <th class="text-left p-2">Empleado</th>
+        <th class="text-left p-2">Documento</th>
+        <th class="text-left p-2">Destajo</th>
+        <th class="text-right p-2">Cantidad</th>
+        <th class="text-left p-2">Acciones</th>
+      </tr></thead>
+      <tbody>
+        <template x-for="r in registros" :key="r.id">
+          <tr class="border-b">
+            <td class="p-2">
+              <template x-if="!r._edit">
+                <span x-text="r.fecha"></span>
+              </template>
+              <template x-if="r._edit">
+                <input type="date" x-model="r.fecha" class="border rounded p-1">
+              </template>
+            </td>
+            <td class="p-2" x-text="r.empleado_nombre"></td>
+            <td class="p-2" x-text="r.empleado_documento"></td>
+            <td class="p-2">
+              <template x-if="!r._edit">
+                <span x-text="r.destajo"></span>
+              </template>
+              <template x-if="r._edit">
+                <input type="number" x-model.number="r.destajo_id" class="border rounded p-1 w-28" title="Id de destajo (por ahora)">
+              </template>
+            </td>
+            <td class="p-2 text-right">
+              <template x-if="!r._edit">
+                <span x-text="r.cantidad"></span>
+              </template>
+              <template x-if="r._edit">
+                <input type="number" step="0.01" x-model.number="r.cantidad" class="border rounded p-1 w-24 text-right">
+              </template>
+            </td>
+            <td class="p-2 space-x-2">
+              <template x-if="!r._edit">
+                <button @click="editar(r)" class="text-sky-700">Editar</button>
+                <button @click="eliminar(r.id)" class="text-red-600">Eliminar</button>
+              </template>
+              <template x-if="r._edit">
+                <button @click="guardar(r)" class="text-green-700">Guardar</button>
+                <button @click="cancelar(r)" class="text-gray-600">Cancelar</button>
+              </template>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
