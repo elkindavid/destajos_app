@@ -2,8 +2,10 @@ const CACHE = 'destajos-cache-v1';
 const APP_SHELL = [
   '/',
   '/static/js/app.js',
-  '/static/js/idb.js',
-  '/manifest.webmanifest'
+  '/static/js/indexedDB.js',
+  '/static/css/tailwind.css', // si tienes CSS propio
+  '/manifest.webmanifest',
+  '/static/js/alpine.js'
 ];
 
 self.addEventListener('install', (e)=>{

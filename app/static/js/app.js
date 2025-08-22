@@ -21,7 +21,7 @@ function idbOpen() {
         console.log("🗂️ Store creada:", STORE_QUEUE);
       }
       if (!db.objectStoreNames.contains(STORE_EMPLEADOS)) {
-        db.createObjectStore(STORE_EMPLEADOS, { keyPath: 'documento' }); // 👈 aseguramos clave
+        db.createObjectStore(STORE_EMPLEADOS, { keyPath: 'documento' }); 
         console.log("🗂️ Store creada:", STORE_EMPLEADOS);
       }
       if (!db.objectStoreNames.contains(STORE_DESTAJOS)) {
@@ -276,22 +276,74 @@ window.consultarView = function(){
     desde: '',
     hasta: '',
     registros: [],
+    destajos: [],
+    destajosMap: new Map(),
     backup: new Map(),
+    ready: false,
+
+    // Inicializar destajos
+    async init() {
+      try {
+        const d = await API.get("/api/destajos");
+        this.destajos = d;
+        // Forzar claves numéricas
+        d.forEach(x => this.destajosMap.set(Number(x.id), x.concepto));
+        this.ready = true;
+
+        console.log("🟢 Destajos cargados:", this.destajos);  // <--- aquí
+      } catch (e) {
+        console.error("No se pudieron cargar los destajos", e);
+      }
+    },
+
     async buscar(){
+      if (!this.ready){
+        console.warn("⏳ Destajos no listos todavía");
+        return;
+      }
       const p = new URLSearchParams();
       if(this.documento) p.set('documento', this.documento);
       if(this.desde) p.set('desde', this.desde);
       if(this.hasta) p.set('hasta', this.hasta);
       try {
         this.registros = await API.get('/api/registros?'+p.toString());
+        // Forzar que destajo_id sea Number
+        this.registros.forEach(r => r.destajo_id = Number(r.destajo_id));
       } catch(e) {
         alert('Error consultando');
       }
     },
-    editar(r){
+
+    editar(r) {
+      // Guardamos copia del registro para posible cancelación
       this.backup.set(r.id, JSON.parse(JSON.stringify(r)));
-      r._edit = true;
+
+      // Función que activa edición y asigna valor
+      const activarEdicion = () => {
+        r._edit = true; // activar el select
+        this.$nextTick(() => {
+          // Forzamos que r.destajo_id sea un número y coincida con las opciones
+          r.destajo_id = Number(r.destajo_id);
+          console.log("✅ Editando registro:", r.id, "destajo_id:", r.destajo_id);
+        });
+      };
+
+      // Si la lista aún no está cargada
+      if (!this.destajos || this.destajos.length === 0) {
+        console.log("⏳ Destajos no cargados, esperando...");
+        this.loadDestajos().then(() => {
+          activarEdicion(); // activamos edición una vez cargados
+        });
+      } else {
+        activarEdicion(); // si ya están cargados, activamos de inmediato
+      }
     },
+
+    async loadDestajos() {
+      const data = await fetch('/api/destajos').then(r => r.json());
+      this.destajos = data;
+    },
+
     cancelar(r){
       const orig = this.backup.get(r.id);
       if(orig){
@@ -299,20 +351,43 @@ window.consultarView = function(){
         this.backup.delete(r.id);
       }
       r._edit = false;
+      this.registros = [...this.registros]; // actualizar fila
     },
-    async guardar(r){
-      const payload = { fecha: r.fecha, cantidad: r.cantidad, destajo_id: r.destajo_id };
+
+    async guardar(r) {
+      const payload = {
+        fecha: r.fecha,
+        cantidad: r.cantidad,
+        destajo_id: Number(r.destajo_id)
+      };
+
       try {
-        await API.put('/api/registros/'+r.id, payload);
+        await API.put(`/api/registros/${r.id}`, payload);
+
+        // Salir de modo edición
         r._edit = false;
-      } catch(e){
-        alert('No se pudo guardar');
+
+        // Actualizar backup
+        this.backup.set(r.id, JSON.parse(JSON.stringify(r)));
+
+        // Forzar actualización de Alpine
+        this.registros = [...this.registros];
+
+        console.log("✅ Registro actualizado", r);
+      } catch (e) {
+        alert("No se pudo guardar");
+        console.error(e);
       }
     },
+
     async eliminar(id){
       if(!confirm('¿Eliminar registro?')) return;
-      await API.del('/api/registros/'+id);
-      this.registros = this.registros.filter(x=>x.id!==id);
+      try {
+        await API.del('/api/registros/'+id);
+        this.registros = this.registros.filter(x=>x.id!==id);
+      } catch(e){
+        alert('No se pudo eliminar');
+      }
     }
   }
 }
@@ -322,6 +397,6 @@ trySync();
 
 // Registrar Alpine
 document.addEventListener('alpine:init', () => {
-  Alpine.data('destajosForm', destajosForm);
   Alpine.data('consultarView', consultarView);
+  Alpine.data('destajosForm', destajosForm);
 });

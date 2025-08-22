@@ -22,7 +22,7 @@ export function idbOpen() {
         db.createObjectStore(STORE_QUEUE, { keyPath: 'local_id', autoIncrement: true });
       }
       if (!db.objectStoreNames.contains(STORE_EMPLEADOS)) {
-        db.createObjectStore(STORE_EMPLEADOS, { keyPath: 'numeroDocumento' });
+        db.createObjectStore(STORE_EMPLEADOS, { keyPath: 'documento' });
       }
       if (!db.objectStoreNames.contains(STORE_DESTAJOS)) {
         db.createObjectStore(STORE_DESTAJOS, { keyPath: 'id' });
