@@ -1,3 +1,0 @@
-[build]
-# paquetes de sistema necesarios para pyodbc
-packages = ["unixODBC", "unixODBC-dev"]
