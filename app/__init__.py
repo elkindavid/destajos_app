@@ -6,10 +6,28 @@ from .api import api_bp
 from .auth import auth_bp
 from .pwa import pwa_bp
 from config import Config
+import socket
+from .sync import crear_tablas_sqlite, sincronizar_tablas_sqlserver
+
+def can_connect_sqlserver(host, port, timeout=3):
+    """Verifica si el servidor SQL está accesible."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 def create_app():
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config.from_object(Config)
+
+    # 🔹 elegir qué base usar
+    if can_connect_sqlserver("10.50.3.12", 5000):
+        app.config["SQLALCHEMY_DATABASE_URI"] = Config.SQLALCHEMY_DATABASE_URI_SQLSERVER
+        print("✅ Conectado a SQL Server remoto")
+    else:
+        app.config["SQLALCHEMY_DATABASE_URI"] = Config.SQLALCHEMY_DATABASE_URI_SQLITE
+        print("⚠️ No hay conexión, usando SQLite local")
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -25,5 +43,12 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+
+        # Crear tablas SQLite si no existen
+        crear_tablas_sqlite()
+
+        # Sincronizar con SQL Server solo si hay conexión
+        if can_connect_sqlserver("10.50.3.12", 5000):
+            sincronizar_tablas_sqlserver()
 
     return app

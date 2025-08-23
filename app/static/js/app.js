@@ -181,7 +181,35 @@ window.destajosForm = function(){
     cantidad: 1,
     fecha: todayISO(),
     status: '',
-    
+    errores: {},   // 👈 aquí guardamos los errores
+
+    validar() {
+      this.errores = {}; // limpiar errores
+
+      if (!this.empleado_nombre.trim()) {
+        this.errores.empleado_nombre = "Debe seleccionar un empleado.";
+      }
+
+      if (!this.empleado_documento.trim()) {
+        this.errores.empleado_documento = "No se asignó documento al empleado.";
+      }
+
+      if (!this.destajo_text.trim() || !this.destajo_id) {
+        this.errores.destajo = "Debe seleccionar un destajo válido.";
+      }
+
+      if (!this.cantidad || this.cantidad < 1) {
+        this.errores.cantidad = "La cantidad debe ser mayor o igual a 1.";
+      }
+
+      if (!this.fecha) {
+        this.errores.fecha = "Debe seleccionar una fecha.";
+      }
+
+      // Devuelve true si no hay errores
+      return Object.keys(this.errores).length === 0;
+    },
+
     async searchEmpleado() {
       console.log("🔍 Buscando Empleado:", this.empleado_nombre);
 
@@ -242,7 +270,14 @@ window.destajosForm = function(){
         if(hit){ this.destajo_id = hit.id; }
       } catch(e){}
     },
+
     async submit(){
+
+      if (!this.validar()) {
+        this.status = "⚠️ Corrige los errores antes de guardar.";
+        return;
+      }
+
       const payload = {
         empleado_documento: this.empleado_documento,
         empleado_nombre: this.empleado_nombre,
@@ -250,6 +285,7 @@ window.destajosForm = function(){
         cantidad: this.cantidad,
         fecha: this.fecha
       };
+
       const db = await idbOpen();
       if(navigator.onLine){
         try {
@@ -355,9 +391,25 @@ window.consultarView = function(){
     },
 
     async guardar(r) {
+      // --- Validación ---
+      if (!r.fecha) {
+        alert("⚠️ Debe ingresar una fecha.");
+        return;
+      }
+
+      if (!r.cantidad || Number(r.cantidad) < 1) {
+        alert("⚠️ La cantidad debe ser mayor o igual a 1.");
+        return;
+      }
+
+      if (!r.destajo_id || Number(r.destajo_id) <= 0) {
+        alert("⚠️ Debe seleccionar un destajo válido.");
+        return;
+      }
+
       const payload = {
         fecha: r.fecha,
-        cantidad: r.cantidad,
+        cantidad: Number(r.cantidad),
         destajo_id: Number(r.destajo_id)
       };
 
@@ -375,7 +427,7 @@ window.consultarView = function(){
 
         console.log("✅ Registro actualizado", r);
       } catch (e) {
-        alert("No se pudo guardar");
+        alert("❌ No se pudo guardar en servidor");
         console.error(e);
       }
     },

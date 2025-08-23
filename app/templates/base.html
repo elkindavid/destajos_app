@@ -15,8 +15,6 @@
     <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
       <a href="/" class="font-semibold text-sky-600">Carbomaz • Apps</a>
       <div class="space-x-4">
-        <a class="hover:text-sky-600" href="/destajos">Registro Destajos</a>
-        <a class="hover:text-sky-600" href="/consultar">Consultar</a>
         {% if current_user.is_authenticated %}
           <span class="text-sm">Hola, {{ current_user.name }}</span>
           <a class="text-sm text-red-600" href="/auth/logout">Salir</a>

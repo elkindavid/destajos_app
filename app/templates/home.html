@@ -1,18 +1,30 @@
 {% extends 'base.html' %}
-{% block title %}Inicio{% endblock %}
+{% block title %}Soluciones Inteligentes{% endblock %}
+
 {% block content %}
-<div class="grid md:grid-cols-3 gap-4">
-  <a href="/destajos" class="block p-6 bg-white rounded-2xl shadow hover:shadow-md transition">
-    <h2 class="text-lg font-semibold mb-2">Registro de Destajos</h2>
-    <p>Captura rápida, offline/online y sincronización.</p>
-  </a>
-  <a href="/consultar" class="block p-6 bg-white rounded-2xl shadow hover:shadow-md transition">
-    <h2 class="text-lg font-semibold mb-2">Consultar / Editar</h2>
-    <p>Filtra por empleado y fechas, edita o elimina.</p>
-  </a>
-  <a href="#" class="block p-6 bg-white rounded-2xl shadow opacity-60 pointer-events-none">
-    <h2 class="text-lg font-semibold mb-2">Otras apps</h2>
-    <p>Espacio para más módulos.</p>
-  </a>
+<div class="min-h-screen bg-gray-100 flex flex-col">
+
+  <!-- Header con logo y título -->
+  <header class="flex items-center justify-center relative p-6 bg-white shadow-md">
+    <!-- Logo alineado izquierda (más grande) -->
+    <div class="absolute left-6 top-1/2 transform -translate-y-1/2">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Grupo Ximax" class="h-12 w-auto">
+    </div>
+    <!-- Título centrado -->
+    <h1 class="text-4xl font-extrabold text-gray-800">Soluciones Inteligentes</h1>
+  </header>
+
+  <!-- Sección de apps -->
+  <main class="flex-1 p-6">
+    <div class="flex flex-col items-start space-y-6">
+      <!-- Tarjeta Destajos a la izquierda -->
+      <a href="{{ url_for('web.destajos') }}"
+         class="block bg-white rounded-2xl shadow-lg hover:shadow-2xl transition p-6 max-w-sm text-center">
+        <h2 class="text-2xl font-bold text-blue-600 mb-2">Destajos App</h2>
+        <p class="text-gray-500">Gestiona el registro, edición y consulta de destajos de manera ágil y sencilla.</p>
+      </a>
+    </div>
+  </main>
+
 </div>
 {% endblock %}
