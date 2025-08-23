@@ -70,8 +70,26 @@ def crear_tablas_sqlite(db_filename="local.db"):
 def _convert_value(value):
     """Convierte valores incompatibles con SQLite"""
     if isinstance(value, decimal.Decimal):
-        return float(value)  # o str(value) si quieres máxima precisión
+        return float(value)
     return value
+
+
+def _normalize_datetime(value):
+    """Convierte cualquier valor a string compatible con SQL Server (YYYY-MM-DD HH:MM:SS)"""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        # Caso típico: viene como "2025-08-23 15:49:54.578919"
+        return datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        try:
+            # Caso: solo fecha "2025-08-23"
+            return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            print("⚠️ No se pudo normalizar fecha:", value)
+            return None
 
 
 def sincronizar_tablas_sqlserver(db_filename="local.db"):
@@ -142,10 +160,9 @@ def sincronizar_tablas_sqlserver(db_filename="local.db"):
     cursor_sqlite.execute("SELECT * FROM registros_destajo WHERE sincronizado = 0")
     pendientes = cursor_sqlite.fetchall()
     columnas_reg = [desc[0] for desc in cursor_sqlite.description]
+    pendientes_dict = [dict(zip(columnas_reg, row)) for row in pendientes]
 
-    for row in pendientes:
-        registro = dict(zip(columnas_reg, row))
-
+    for registro in pendientes_dict:
         try:
             cursor_sql.execute("""
                 INSERT INTO registros_destajo 
@@ -154,19 +171,21 @@ def sincronizar_tablas_sqlserver(db_filename="local.db"):
             """, (
                 registro["empleado_documento"],
                 registro["empleado_nombre"],
-                registro["destajo_id"],
-                registro["cantidad"],
-                registro["fecha"],
-                registro["fecha_registro"],
-                registro["usuario_id"],
-                registro["actualizado_en"],
-                datetime.now()
+                int(registro["destajo_id"]),
+                float(registro["cantidad"]),
+                _normalize_datetime(registro["fecha"]),
+                _normalize_datetime(registro["fecha_registro"]),
+                int(registro["usuario_id"]),
+                _normalize_datetime(registro["actualizado_en"]),
+                _normalize_datetime(datetime.now())
             ))
-            # Marcar como sincronizado en SQLite
+
+            # ✅ Marcar como sincronizado en SQLite
             cursor_sqlite.execute(
                 "UPDATE registros_destajo SET sincronizado = 1, last_sync = ? WHERE id = ?",
-                (datetime.now(), registro["id"])
+                (_normalize_datetime(datetime.now()), registro["id"])
             )
+
         except Exception as e:
             print(f"⚠️ Error sincronizando registro {registro['id']}: {e}")
 
