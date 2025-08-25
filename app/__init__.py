@@ -21,8 +21,10 @@ def create_app():
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config.from_object(Config)
 
+    is_online = can_connect_sqlserver("10.50.3.12", 5000)
+
     # 🔹 elegir qué base usar
-    if can_connect_sqlserver("10.50.3.12", 5000):
+    if is_online:
         app.config["SQLALCHEMY_DATABASE_URI"] = Config.SQLALCHEMY_DATABASE_URI_SQLSERVER
         print("✅ Conectado a SQL Server remoto")
     else:
@@ -48,7 +50,7 @@ def create_app():
         crear_tablas_sqlite()
 
         # Sincronizar con SQL Server solo si hay conexión
-        if can_connect_sqlserver("10.50.3.12", 5000):
+        if is_online:
             sincronizar_tablas_sqlserver()
 
     return app
