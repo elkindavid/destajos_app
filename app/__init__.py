@@ -8,7 +8,6 @@ from .pwa import pwa_bp
 from .lab_demo import lab_bp
 from config import Config 
 import socket
-from .sync import crear_tablas_sqlite, sincronizar_tablas_sqlserver
 
 def can_connect_sqlserver(host, port, timeout=3):
     """Verifica si el servidor SQL está accesible."""
@@ -29,7 +28,6 @@ def create_app():
         app.config["SQLALCHEMY_DATABASE_URI"] = Config.SQLALCHEMY_DATABASE_URI_SQLSERVER
         print("✅ Conectado a SQL Server remoto")
     else:
-        app.config["SQLALCHEMY_DATABASE_URI"] = Config.SQLALCHEMY_DATABASE_URI_SQLITE
         print("⚠️ No hay conexión, usando SQLite local")
 
     db.init_app(app)
@@ -47,12 +45,5 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-
-        # Crear tablas SQLite si no existen
-        crear_tablas_sqlite()
-
-        # Sincronizar con SQL Server solo si hay conexión
-        if is_online:
-            sincronizar_tablas_sqlserver()
 
     return app

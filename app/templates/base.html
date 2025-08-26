@@ -14,16 +14,36 @@
   <nav class="bg-white shadow sticky top-0 z-10">
     <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
       <a href="/" class="font-semibold text-sky-600">Carbomaz • Apps</a>
-      <div class="space-x-4">
+
+      <div class="flex items-center space-x-4">
         {% if current_user.is_authenticated %}
-          <span class="text-sm">Hola, {{ current_user.name }}</span>
-          <a class="text-sm text-red-600" href="/auth/logout">Salir</a>
+          <div x-data="{ open: false }" class="relative">
+            <button @click="open = !open" class="flex items-center space-x-1 text-sm font-medium text-slate-700 hover:text-sky-600">
+              <span>{{ current_user.name }}</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white border rounded shadow-md z-20">
+              <a href="{{ url_for('auth.change_password') }}" class="block px-4 py-2 text-sm hover:bg-slate-100">🔑 Cambiar contraseña</a>
+              
+              {% if current_user.is_admin %}
+                <a href="{{ url_for('auth.register') }}" class="block px-4 py-2 text-sm hover:bg-slate-100">➕ Nuevo usuario</a>
+                <a href="{{ url_for('auth.listado') }}" class="block px-4 py-2 text-sm hover:bg-slate-100">👥 Listado</a>
+              {% endif %}
+              
+              <a href="{{ url_for('auth.logout') }}" class="block px-4 py-2 text-sm text-red-600 hover:bg-slate-100">⎋ Salir</a>
+            </div>
+
+          </div>
         {% else %}
-          <a class="text-sm" href="/auth/login">Entrar</a>
+          <a class="text-sm" href="{{ url_for('auth.login') }}">Entrar</a>
         {% endif %}
       </div>
     </div>
   </nav>
+
   <main class="max-w-6xl mx-auto p-4">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}

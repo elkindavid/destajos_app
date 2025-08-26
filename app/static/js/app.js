@@ -320,11 +320,19 @@ window.consultarView = function(){
     // Inicializar destajos
     async init() {
       try {
+        // 1️⃣ Inicializar fechas por defecto
+        const today = new Date();
+        this.desde = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`; // primer día del mes
+        this.hasta = today.toISOString().split('T')[0]; // hoy
+
+        // 2️⃣ Cargar destajos
         const d = await API.get("/api/destajos");
         this.destajos = d;
         // Forzar claves numéricas
         d.forEach(x => this.destajosMap.set(Number(x.id), x.concepto));
         this.ready = true;
+
+        this.buscar();
 
         console.log("🟢 Destajos cargados:", this.destajos);  // <--- aquí
       } catch (e) {
@@ -333,20 +341,22 @@ window.consultarView = function(){
     },
 
     async buscar(){
-      if (!this.ready){
-        console.warn("⏳ Destajos no listos todavía");
-        return;
-      }
+      if (!this.ready) return;
+
       const p = new URLSearchParams();
       if(this.documento) p.set('documento', this.documento);
       if(this.desde) p.set('desde', this.desde);
       if(this.hasta) p.set('hasta', this.hasta);
+
       try {
         this.registros = await API.get('/api/registros?'+p.toString());
-        // Forzar que destajo_id sea Number
         this.registros.forEach(r => r.destajo_id = Number(r.destajo_id));
       } catch(e) {
-        alert('Error consultando');
+        console.warn("⚠️ No se pudo consultar el backend, usando cache local", e);
+
+        // Cargar desde IndexedDB como fallback
+        const db = await idb.openDB('destajosDB', 1);
+        this.registros = await db.getAll('registros');
       }
     },
 

@@ -1,9 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
 from sqlalchemy import text
 from .extensions import db
 from .models import RegistroDestajo
 from datetime import datetime, date
+from .models import User
 
 api_bp = Blueprint("api", __name__)
 
@@ -87,6 +88,13 @@ def eliminar_registro(rid):
     db.session.commit()
     return jsonify({'ok': True})
 
+def safe_iso(value):
+    if value is None:
+        return None
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return str(value)
+
 @api_bp.get("/registros")
 @login_required
 def listar_registros():
@@ -121,8 +129,8 @@ def listar_registros():
         'destajo_id': int(r['destajo_id']),
         'destajo': r['Concepto'],
         'cantidad': float(r['cantidad']),
-        'fecha': r['fecha'].isoformat(),
-        'fecha_registro': r['fecha_registro'].isoformat() if r['fecha_registro'] else None,
+        'fecha': safe_iso(r['fecha']),
+        'fecha_registro': safe_iso(r['fecha_registro']),
         'usuario_id': int(r['usuario_id'])
     } for r in rows])
 
