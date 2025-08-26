@@ -1,37 +1,19 @@
-FROM python:3.11.13-slim
+FROM python:3.11-slim
 
-# Instalar dependencias del sistema (ODBC + utilidades)
-RUN apt-get update && apt-get install -y \
-    gcc \
-    curl \
-    gnupg2 \
-    apt-transport-https \
-    unixodbc \
-    unixodbc-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Agregar repositorio de Microsoft
-RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
- && curl -sSL https://packages.microsoft.com/config/debian/11/prod.list | tee /etc/apt/sources.list.d/mssql-release.list
-
-# Instalar drivers ODBC
-RUN apt-get update && ACCEPT_EULA=Y apt-get install -y \
-    msodbcsql18 \
-    mssql-tools18 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Agregar mssql-tools al PATH
-ENV PATH="$PATH:/opt/mssql-tools18/bin"
-
-# Crear directorio de la app
-WORKDIR /app
+# Instalar dependencias de sistema para pyodbc + SQL Server drivers
+RUN apt-get update && \
+    apt-get install -y curl gnupg2 apt-transport-https unixodbc-dev && \
+    curl -sSL https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+    curl -sSL https://packages.microsoft.com/config/debian/11/prod.list \
+        | tee /etc/apt/sources.list.d/mssql-release.list && \
+    apt-get update && ACCEPT_EULA=Y apt-get install -y msodbcsql18 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Instalar dependencias Python
+WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el código
 COPY . .
 
-# Ejecutar con Gunicorn (producción)
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "run:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]
