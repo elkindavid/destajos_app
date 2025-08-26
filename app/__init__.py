@@ -21,7 +21,7 @@ def create_app():
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config.from_object(Config)
 
-    is_online = can_connect_sqlserver("10.50.3.12", 5000)
+    is_online = can_connect_sqlserver("190.255.33.10", 2500)
 
     # 🔹 elegir qué base usar
     if is_online:
