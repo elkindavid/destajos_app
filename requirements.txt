@@ -8,3 +8,6 @@ pyodbc==5.1.0
 python-dotenv==1.0.1
 gunicorn
 psycopg2-binary
+gnupg2
+apt-transport-https
+apt-key
