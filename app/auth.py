@@ -1,11 +1,16 @@
 from functools import wraps
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, login_required, current_user
-from .extensions import db
-from .models import User
+from .extensions import db, login_manager
+from .models import User, LocalUser   # 👈 importa LocalUser
+from sqlalchemy.exc import OperationalError, InterfaceError
+from flask import current_app
+import logging
 
 auth_bp = Blueprint("auth", __name__, template_folder="templates")
+
+logger = logging.getLogger(__name__)
 
 def admin_required(f):
     @wraps(f)
@@ -19,6 +24,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return wrapper
 
+
 # Listado de usuarios (solo admins)
 @auth_bp.route("/usuarios")
 @admin_required
@@ -26,29 +32,42 @@ def listado():
     users = User.query.order_by(User.id).all()
     return render_template("usuarios_listado.html", users=users)
 
-# Login
-@auth_bp.route("/login", methods=["GET","POST"])
+# Cargar usuario según tipo de DB
+@login_manager.user_loader
+def load_user(user_id):
+    if not current_app.config.get("IS_ONLINE", True):
+        return LocalUser.query.get(int(user_id))
+    return User.query.get(int(user_id))
+
+# Login dinámico online/offline
+@auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form.get("email","").strip().lower()
         password = request.form.get("password","")
-        user = User.query.filter_by(email=email).first()
-        if not user or not check_password_hash(user.password_hash, password):
-            flash("Credenciales inválidas", "error")
-            return redirect(url_for("auth.login"))
-        login_user(user)
-        return redirect(url_for("web.home"))
+
+        if not current_app.config.get("IS_ONLINE", True):
+            user = LocalUser.query.filter_by(email=email).first()
+        else:
+            user = User.query.filter_by(email=email).first()
+
+        if user and user.check_password(password):
+            login_user(user)
+            flash("Inicio de sesión exitoso", "success")
+            return redirect(url_for("web.home"))
+
+        flash("Usuario o contraseña incorrectos", "danger")
+
     return render_template("auth_login.html")
 
-# Registro de usuarios (solo admins pueden crear usuarios)
-@auth_bp.route("/register", methods=["GET","POST"])
+# Registro de usuarios (solo admins)
+@auth_bp.route("/register", methods=["GET", "POST"])
 @admin_required
 def register():
     if request.method == "POST":
-        email = request.form.get("email","").strip().lower()
-        name = request.form.get("name","").strip()
-        password = request.form.get("password","")
-        # checkbox opcional para crear admin desde el formulario (solo admin puede usarlo)
+        email = request.form.get("email", "").strip().lower()
+        name = request.form.get("name", "").strip()
+        password = request.form.get("password", "")
         is_admin_flag = True if request.form.get("is_admin") == "on" else False
 
         if User.query.filter_by(email=email).first():
@@ -66,7 +85,8 @@ def register():
             return redirect(url_for("auth.listado"))
     return render_template("auth_register.html")
 
-# Cambiar contraseña (todos los usuarios autenticados)
+
+# Cambiar contraseña
 @auth_bp.route("/change-password", methods=["GET", "POST"])
 @login_required
 def change_password():
@@ -75,7 +95,6 @@ def change_password():
         new_password = request.form.get("new_password")
         confirm_password = request.form.get("confirm_password")
 
-        # Validaciones
         if not check_password_hash(current_user.password_hash, current_password):
             flash("La contraseña actual es incorrecta", "error")
             return redirect(url_for("auth.change_password"))
@@ -84,7 +103,6 @@ def change_password():
             flash("Las contraseñas nuevas no coinciden", "error")
             return redirect(url_for("auth.change_password"))
 
-        # Guardar nueva contraseña
         current_user.password_hash = generate_password_hash(new_password)
         db.session.commit()
         flash("Tu contraseña ha sido actualizada correctamente", "success")
@@ -92,9 +110,21 @@ def change_password():
 
     return render_template("auth_change_password.html")
 
+
 # Logout
 @auth_bp.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("auth.login"))
+
+
+# GET /auth/users
+@auth_bp.route("/users", methods=["GET"])
+def get_users():
+    try:
+        users = User.query.all()
+        users_data = [u.to_dict() for u in users]  # asegúrate que el modelo tenga to_dict()
+        return jsonify(users_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

@@ -4,7 +4,7 @@ from sqlalchemy import text
 from .extensions import db
 from .models import RegistroDestajo
 from datetime import datetime, date
-from .models import User
+from .models import User, GHDestajo, GHEmpleado
 
 api_bp = Blueprint("api", __name__)
 
@@ -153,3 +153,23 @@ def sync_batch():
         created.append(reg.id)
     db.session.commit()
     return jsonify({'ok': True, 'ids': created})
+
+# GET /api/empleados
+@api_bp.route("/empleados", methods=["GET"])
+def get_empleados():
+    try:
+        empleados = GHEmpleado.query.all()
+        empleados_data = [e.to_dict() for e in empleados]  # asegúrate que el modelo tenga to_dict()
+        return jsonify(empleados_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# GET /api/mdestajos
+@api_bp.route("/mdestajos", methods=["GET"])
+def get_destajos():
+    try:
+        destajos = GHDestajo.query.all()
+        destajos_data = [e.to_dict() for e in destajos]  # asegúrate que el modelo tenga to_dict()
+        return jsonify(destajos_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

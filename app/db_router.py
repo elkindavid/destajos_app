@@ -3,8 +3,8 @@ import socket
 from sqlalchemy import create_engine, text
 from config import Config
 
-SQLSERVER_HOST = "10.50.3.12"
-SQLSERVER_PORT = 5000
+SQLSERVER_HOST = "190.255.33.10"
+SQLSERVER_PORT = 2500
 
 def is_online(timeout=1.5):
     try:

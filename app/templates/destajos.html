@@ -10,7 +10,7 @@
   </div>
 
   <!-- Bloque de Registro -->
-  <div x-data x-init="idbOpen()"> <!-- IndexedDB abre al cargar -->
+  <div x-init="initDB()"> <!-- IndexedDB abre al cargar -->
     <div x-data="destajosForm()" class="bg-white rounded-2xl shadow p-6">
       <h2 class="text-xl font-semibold mb-4">Nuevo registro</h2>
       <form @submit.prevent="submit()" class="grid md:grid-cols-2 gap-4">
@@ -19,7 +19,7 @@
         <div>
           <label class="block text-sm">Empleado (nombre)</label>
           <input x-model="empleado_nombre"
-                 @input.debounce.300="searchEmpleado()" 
+                 @input.debounce.300="buscarEmpleado()" 
                  @change="asignarDocumento()"
                  list="listaEmpleados"
                  class="w-full border rounded p-2">

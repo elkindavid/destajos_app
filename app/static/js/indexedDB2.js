@@ -1,49 +1,35 @@
-// ==============================
-// IndexedDB helpers
-// ==============================
+let db = null;
 const DB_NAME = 'destajos';
-const DB_VERSION = 2; // 👈 subimos versión para forzar recreación
+const DB_VERSION = 1; // 👈 subimos versión para forzar recreación
 const STORE_QUEUE = 'queue';
 const STORE_EMPLEADOS = 'empleados';
 const STORE_DESTAJOS = 'destajos';
 const STORE_USUARIOS = 'users';
 
-/* function idbOpen() {
+function initDB(){
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    let request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    req.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      console.log("⚡ Actualizando estructura de IndexedDB...");
+    request.onerror = (event) => {
+      console.error("❌ Error abriendo DB:", event.target.error);
+      reject(event.target.error);
+    }
+    request.onsuccess = (event) => {
+      db = event.target.result;
+      console.log("✅ Base de datos abierta:", db.name);
+      resolve(db);
+    };
+    request.onupgradeneeded = (event) => {
+      db = event.target.result;
 
+      // Store queue
       if (!db.objectStoreNames.contains(STORE_QUEUE)) {
         db.createObjectStore(STORE_QUEUE, { keyPath: 'local_id', autoIncrement: true });
         console.log("🗂️ Store creada:", STORE_QUEUE);
       }
-      if (!db.objectStoreNames.contains(STORE_EMPLEADOS)) {
-        db.createObjectStore(STORE_EMPLEADOS, { keyPath: 'documento' }); 
-        console.log("🗂️ Store creada:", STORE_EMPLEADOS);
-      }
-      if (!db.objectStoreNames.contains(STORE_DESTAJOS)) {
-        db.createObjectStore(STORE_DESTAJOS, { keyPath: 'id' });
-        console.log("🗂️ Store creada:", STORE_DESTAJOS);
-      }
-      if (!db.objectStoreNames.contains(STORE_USUARIOS)) {
-        db.createObjectStore(STORE_USUARIOS, { keyPath: 'id' });
-        console.log("🗂️ Store creada:", STORE_USUARIOS);
-      }
-    };
-
-    req.onsuccess = (e) => {
-      console.log("✅ IndexedDB abierto correctamente");
-      resolve(e.target.result);
-    };
-    req.onerror = (e) => {
-      console.error("❌ Error abriendo IndexedDB", e.target.error);
-      reject(e.target.error);
-    };
-  });
-} */
+    }
+  })
+}
 
 async function idbAdd(db, store, item) {
   return new Promise((resolve, reject) => {
@@ -54,22 +40,24 @@ async function idbAdd(db, store, item) {
   });
 }
 
-async function idbAddMany(db, store, items) {
+async function idbAddMany(db, storeName, data) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readwrite');
-    const st = tx.objectStore(store);
-    items.forEach(item => st.put(item)); // put = add o update
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = (e) => reject(e);
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    data.forEach(item => store.put(item));
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
   });
 }
 
-async function idbGetAll(db, store) {
+async function idbGetAll(db, storeName) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = (e) => reject(e);
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const request = store.getAll();
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = (e) => reject(e.target.error);
   });
 }
 
@@ -82,28 +70,6 @@ async function idbClear(db, store) {
   });
 }
 
-// ==============================
-// Inicialización de IndexedDB y cache de empleados
-// ==============================
-// document.addEventListener("DOMContentLoaded", async () => {
-//   try {
-//     const db = await idbOpen();
-
-//     if (navigator.onLine) {
-//       const empleados = await API.get("/api/employees");
-//       await idbAddMany(db, STORE_EMPLEADOS, empleados);
-//       console.log("✅ Empleados sincronizados en IndexedDB");
-//     } else {
-//       console.log("📴 Sin internet, se usará IndexedDB");
-//     }
-//   } catch (err) {
-//     console.error("❌ Error inicializando IndexedDB", err);
-//   }
-// });
-
-// ==============================
-// API helpers
-// ==============================
 const API = {
   async get(url){
     const r = await fetch(url, {credentials:'same-origin'});
@@ -134,32 +100,6 @@ const API = {
   }
 };
 
-// ==============================
-// Sync offline → server
-// ==============================
-// async function trySync(){
-//   if(!navigator.onLine) return;
-//   const db = await idbOpen();
-//   const items = await idbGetAll(db, STORE_QUEUE);
-//   if(items.length === 0) return;
-//   const payload = items.map(({local_id, ...rest})=>rest);
-//   try {
-//     await API.post('/api/sync', payload);
-//     await idbClear(db, STORE_QUEUE);
-//     console.log('✅ Sincronizado', payload.length);
-//   } catch(e){
-//     console.warn('⚠️ Sync fallo', e);
-//   }
-// }
-
-// window.addEventListener('online', trySync);
-// document.addEventListener('visibilitychange', ()=> {
-//   if(document.visibilityState === 'visible') trySync();
-// });
-
-// ==============================
-// Helpers
-// ==============================
 function todayISO(){
   const d = new Date();
   const m = String(d.getMonth()+1).padStart(2,'0');
@@ -210,7 +150,7 @@ window.destajosForm = function(){
       return Object.keys(this.errores).length === 0;
     },
 
-    async searchEmpleado() {
+    async buscarEmpleado() {
       console.log("🔍 Buscando Empleado:", this.empleado_nombre);
 
       const q = this.empleado_nombre || this.empleado_documento;
@@ -222,9 +162,8 @@ window.destajosForm = function(){
 
         if (navigator.onLine) {
           const res = await fetch(`/api/employees?q=${encodeURIComponent(q)}`);
-          if (!res.ok) throw new Error('HTTP error ' + res.status);
+          if (!res.ok) throw new Error("HTTP error " + res.status);
           data = await res.json();
-          await idbAddMany(db, STORE_EMPLEADOS, data);
         } else {
           data = await idbGetAll(db, STORE_EMPLEADOS);
           data = data.filter(e =>
@@ -240,8 +179,13 @@ window.destajosForm = function(){
           e.nombreCompleto?.trim().toLowerCase() === this.empleado_nombre.trim().toLowerCase()
         );
 
+        if (seleccionado) {
+          this.empleado_documento = seleccionado.documento;
+        }
+
       } catch (err) {
         console.error("⚠️ Error buscando empleado", err);
+        this.status = "Error al buscar empleado";
       }
     },
 
@@ -355,8 +299,8 @@ window.consultarView = function(){
         console.warn("⚠️ No se pudo consultar el backend, usando cache local", e);
 
         // Cargar desde IndexedDB como fallback
-        const db = await idb.openDB('destajosDB', 1);
-        this.registros = await db.getAll('registros');
+        this.registros = await idbGetAll('queue');  // 👈 o el store que uses para registros
+
       }
     },
 
@@ -462,3 +406,108 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('consultarView', consultarView);
   Alpine.data('destajosForm', destajosForm);
 });
+
+
+// ==============================
+// Sync offline → server
+// ==============================
+async function trySync(){
+  if(!navigator.onLine) return;
+  const db = await initDB();
+  const items = await idbGetAll(db, STORE_QUEUE);
+  if(items.length === 0) return;
+  const payload = items.map(({local_id, ...rest})=>rest);
+  try {
+    await API.post('/api/sync', payload);
+    await idbClear(db, STORE_QUEUE);
+    console.log('✅ Sincronizado', payload.length);
+  } catch(e){
+    console.warn('⚠️ Sync fallo', e);
+  }
+}
+
+window.addEventListener('online', trySync);
+document.addEventListener('visibilitychange', ()=> {
+  if(document.visibilityState === 'visible') trySync();
+});
+
+// Inicializa la primera sincronización
+trySync();
+
+// Registrar Alpine
+document.addEventListener('alpine:init', () => {
+  Alpine.data('consultarView', consultarView);
+  Alpine.data('destajosForm', destajosForm);
+});
+
+async function loginOffline(username, password) {
+    const db = await initDB(); // tu función initDB()
+    const tx = db.transaction('users', 'readonly');
+    const store = tx.objectStore('users');
+    const users = await store.getAll();
+
+    const user = users.find(u => u.username === username && u.password === password);
+    if(user){
+        // Guardar sesión offline
+        localStorage.setItem('currentUser', JSON.stringify(user));
+        alert("✅ Login offline exitoso");
+        return true;
+    } else {
+        alert("❌ Usuario o contraseña incorrecta");
+        return false;
+    }
+}
+
+// Para online, llamas a la API Flask normalmente
+async function loginOnline(username, password) {
+    try {
+        const res = await fetch("/auth/login", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({username, password})
+        });
+        const data = await res.json();
+        if(data.success){
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
+            alert("✅ Login online exitoso");
+            return true;
+        } else {
+            alert("❌ Usuario o contraseña incorrecta");
+            return false;
+        }
+    } catch(e){
+        console.warn("⚠️ No hay conexión, usando IndexedDB");
+        return loginOffline(username, password);
+    }
+}
+
+async function handleLogin() {
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    // Llama primero loginOnline, que caerá a loginOffline si no hay conexión
+    const success = await loginOnline(username, password);
+
+    if(success){
+        console.log("Usuario logueado:", getCurrentUser());
+        // Redirigir a la app o actualizar UI
+        window.location.href = "/"; 
+    } else {
+        console.log("Login fallido");
+    }
+}
+
+function getCurrentUser() {
+    const user = localStorage.getItem('currentUser');
+    return user ? JSON.parse(user) : null;
+}
+
+// Verificar si hay usuario logueado
+if(getCurrentUser()){
+    console.log("Usuario logueado:", getCurrentUser().username);
+} else {
+    console.log("No hay usuario logueado");
+}
+
+
+window.initDB = initDB;
