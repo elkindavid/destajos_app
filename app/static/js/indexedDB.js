@@ -2,9 +2,9 @@ let db = null;
 const DB_NAME = 'destajos';
 const DB_VERSION = 1; // 👈 subimos versión para forzar recreación
 const STORE_QUEUE = 'queue';
-const STORE_EMPLEADOS = 'empleados';
-const STORE_DESTAJOS = 'destajos';
-const STORE_USUARIOS = 'users';
+// const STORE_EMPLEADOS = 'GH_Empleados';
+// const STORE_DESTAJOS = 'GH_Destajos';
+// const STORE_USUARIOS = 'users';
 
 function initDB(){
   return new Promise((resolve, reject) => {
@@ -31,33 +31,41 @@ function initDB(){
   })
 }
 
-async function idbAdd(db, store, item) {
+function normalizarParaUI(r) {
+  // Asegura un id de UI estable para x-for (no se usa para IndexedDB)
+  if (r.local_id != null && (r.id == null || String(r.id).startsWith("local-"))) {
+    r.id = `local-${r.local_id}`;
+  }
+  // evita que quede pegado en edición cuando recargues
+  if (r._edit) r._edit = false;
+  return r;
+}
+
+async function idbAdd(db, store, value) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).add(item);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = (e) => reject(e);
+    const tx = db.transaction(store, "readwrite");
+    const req = tx.objectStore(store).add(value); // devuelve el local_id autoincrement
+    req.onsuccess = (e) => resolve(e.target.result); // ← local_id numérico
+    req.onerror   = (e) => reject(e.target.error);
   });
 }
 
-async function idbAddMany(db, storeName, data) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readwrite");
-    const store = tx.objectStore(storeName);
-    data.forEach(item => store.put(item));
-    tx.oncomplete = () => resolve();
-    tx.onerror = (e) => reject(e.target.error);
-  });
-}
+// async function idbAddMany(db, storeName, data) {
+//   return new Promise((resolve, reject) => {
+//     const tx = db.transaction(storeName, "readwrite");
+//     const store = tx.objectStore(storeName);
+//     data.forEach(item => store.put(item));
+//     tx.oncomplete = () => resolve();
+//     tx.onerror = (e) => reject(e.target.error);
+//   });
+// }
 
-async function idbGetAll(db, storeName) {
+async function idbGetAll(db, store) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readonly");
-    const store = tx.objectStore(storeName);
-    const request = store.getAll();
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = (e) => reject(e.target.error);
+    const tx = db.transaction(store, "readonly");
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = (e) => reject(e.target.error);
   });
 }
 
@@ -67,6 +75,24 @@ async function idbClear(db, store) {
     tx.objectStore(store).clear();
     tx.oncomplete = () => resolve(true);
     tx.onerror = (e) => reject(e);
+  });
+}
+
+async function idbPut(db, store, value) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const req = tx.objectStore(store).put(value); // requiere value.local_id ya seteado
+    req.onsuccess = () => resolve(true);
+    req.onerror   = (e) => reject(e.target.error);
+  });
+}
+
+async function idbDelete(db, store, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const req = tx.objectStore(store).delete(key); // key === local_id (number)
+    req.onsuccess = () => resolve(true);
+    req.onerror   = (e) => reject(e.target.error);
   });
 }
 
@@ -157,32 +183,19 @@ window.destajosForm = function(){
       if (!q || q.length < 2) return;
 
       try {
-        const db = await initDB();
-        let data;
-
-        if (navigator.onLine) {
-          const res = await fetch(`/api/employees?q=${encodeURIComponent(q)}`);
-          if (!res.ok) throw new Error("HTTP error " + res.status);
-          data = await res.json();
-        } else {
-          data = await idbGetAll(db, STORE_EMPLEADOS);
-          data = data.filter(e =>
-            (e.nombre && e.nombre.toLowerCase().includes(q.toLowerCase())) ||
-            (e.numeroDocumento && e.numeroDocumento.includes(q))
-          );
-        }
+        const res = await fetch(`/api/employees?q=${encodeURIComponent(q)}`);
+        if (!res.ok) throw new Error("HTTP error " + res.status);
+        const data = await res.json();
 
         this.empleados = data;
 
         const seleccionado = data.find(e =>
-          e.nombre?.trim().toLowerCase() === this.empleado_nombre.trim().toLowerCase() ||
-          e.nombreCompleto?.trim().toLowerCase() === this.empleado_nombre.trim().toLowerCase()
+          e.nombre?.trim().toLowerCase() === this.empleado_nombre?.trim().toLowerCase()
         );
 
         if (seleccionado) {
           this.empleado_documento = seleccionado.documento;
         }
-
       } catch (err) {
         console.error("⚠️ Error buscando empleado", err);
         this.status = "Error al buscar empleado";
@@ -227,7 +240,8 @@ window.destajosForm = function(){
         empleado_nombre: this.empleado_nombre,
         destajo_id: this.destajo_id,
         cantidad: this.cantidad,
-        fecha: this.fecha
+        fecha: this.fecha,
+        _edit: false 
       };
 
       const db = await initDB();
@@ -246,6 +260,20 @@ window.destajosForm = function(){
     }
   }
 }
+
+function normalizarRegistro(r) {
+  // si no tiene ninguna clave → le asignamos un local_id único
+  if (!r.local_id && !r.id) {
+    r.local_id = "local-" + crypto.randomUUID();
+  }
+  return r;
+}
+
+window.onload = async () => {
+  const db = await initDB();
+  const offline = await idbGetAll(db, STORE_QUEUE);
+  this.registros = offline.map(x => normalizarParaUI(x));
+};
 
 // ==============================
 // Alpine data: Vista consultar
@@ -284,7 +312,7 @@ window.consultarView = function(){
       }
     },
 
-    async buscar(){
+    async buscar() {
       if (!this.ready) return;
 
       const p = new URLSearchParams();
@@ -292,15 +320,32 @@ window.consultarView = function(){
       if(this.desde) p.set('desde', this.desde);
       if(this.hasta) p.set('hasta', this.hasta);
 
+      if (navigator.onLine) {
+        try {
+          this.registros = await API.get('/api/registros?' + p.toString());
+          this.registros.forEach(r => r.destajo_id = Number(r.destajo_id));
+          return;
+        } catch (e) {
+          console.warn("⚠️ Backend dio error, uso cache local", e);
+        }
+      } else {
+        console.log("🌐 Sin conexión → voy directo a cache local");
+      }
+
+      // --- OFFLINE fallback ---
       try {
-        this.registros = await API.get('/api/registros?'+p.toString());
-        this.registros.forEach(r => r.destajo_id = Number(r.destajo_id));
-      } catch(e) {
-        console.warn("⚠️ No se pudo consultar el backend, usando cache local", e);
+        const db = await initDB();
+        const offline = await idbGetAll(db, STORE_QUEUE);
 
-        // Cargar desde IndexedDB como fallback
-        this.registros = await idbGetAll('queue');  // 👈 o el store que uses para registros
+        this.registros = offline.map(r => {
+          r._isOffline = true;
+          r.id = r.id ?? `local-${r.local_id}`; // clave única para Alpine
+          return normalizarParaUI(r);
+        });
 
+      } catch (e) {
+        console.error("❌ Error cargando IndexedDB", e);
+        this.registros = [];
       }
     },
 
@@ -344,55 +389,108 @@ window.consultarView = function(){
       this.registros = [...this.registros]; // actualizar fila
     },
 
+    // ==================== GUARDAR (online + offline) ====================
     async guardar(r) {
       // --- Validación ---
-      if (!r.fecha) {
-        alert("⚠️ Debe ingresar una fecha.");
-        return;
-      }
-
-      if (!r.cantidad || Number(r.cantidad) < 1) {
-        alert("⚠️ La cantidad debe ser mayor o igual a 1.");
-        return;
-      }
-
-      if (!r.destajo_id || Number(r.destajo_id) <= 0) {
-        alert("⚠️ Debe seleccionar un destajo válido.");
-        return;
-      }
+      if (!r.fecha) { alert("⚠️ Debe ingresar una fecha."); return; }
+      if (!r.cantidad || Number(r.cantidad) < 1) { alert("⚠️ La cantidad debe ser mayor o igual a 1."); return; }
+      if (!r.destajo_id || Number(r.destajo_id) <= 0) { alert("⚠️ Debe seleccionar un destajo válido."); return; }
 
       const payload = {
         fecha: r.fecha,
         cantidad: Number(r.cantidad),
-        destajo_id: Number(r.destajo_id)
+        destajo_id: Number(r.destajo_id),
       };
 
+      // --- ONLINE ---
+      if (navigator.onLine && r.id && !String(r.id).startsWith("local-")) {
+        try {
+          await API.put(`/api/registros/${r.id}`, payload);
+
+          r._edit = false;
+          this.backup.set(r.id, JSON.parse(JSON.stringify(r)));
+          this.registros = [...this.registros];
+          console.log("✅ Registro actualizado en servidor", r);
+          return;
+        } catch (e) {
+          console.warn("⚠️ Error servidor, guardando en cola offline", e);
+        }
+      }
+
+      // --- OFFLINE / FALLBACK ---
       try {
-        await API.put(`/api/registros/${r.id}`, payload);
+        const db = await initDB();
 
-        // Salir de modo edición
+        // Clon limpio para IndexedDB (evita DataCloneError)
+        const clean = JSON.parse(JSON.stringify({ ...r, ...payload }));
+
         r._edit = false;
-
-        // Actualizar backup
-        this.backup.set(r.id, JSON.parse(JSON.stringify(r)));
-
-        // Forzar actualización de Alpine
-        this.registros = [...this.registros];
-
-        console.log("✅ Registro actualizado", r);
+        if (clean.local_id != null) {
+          // update en cola (ya debe traer local_id numérico)
+          await idbPut(db, STORE_QUEUE, clean);
+          console.log("💾 Actualizado en cola local:", clean);
+        } else {
+          // insert nuevo → dejamos que IDB genere local_id (numérico)
+          const newLocalId = await idbAdd(db, STORE_QUEUE, clean);
+          r.local_id = newLocalId;       // reflejar en UI
+          r.id = `local-${newLocalId}`;  // id de UI estable (no se usa para IDB)
+          console.log("💾 Guardado nuevo en cola local:", { ...clean, local_id: newLocalId });
+        }
+        this.registros = this.registros.map(x => x === r ? normalizarParaUI(r) : normalizarParaUI(x));
+        alert("✅ Guardado offline (pendiente de sincronizar)");
       } catch (e) {
-        alert("❌ No se pudo guardar en servidor");
-        console.error(e);
+        console.error("❌ Error guardando en IndexedDB", e);
+        alert("Error guardando en modo offline");
       }
     },
 
-    async eliminar(id){
-      if(!confirm('¿Eliminar registro?')) return;
+    // ==================== ELIMINAR (online + offline) ====================
+    async eliminar(target) {
+      if (!confirm("¿Eliminar registro?")) return;
+
+      // 1) Normaliza el parámetro a objeto `r`
+      let r = target;
+      if (typeof target !== "object") {
+        r = this.registros.find(
+          (x) => String(x.id) === String(target) || String(x.local_id) === String(target)
+        );
+      }
+      if (!r) {
+        console.error("❌ No se encontró el registro a eliminar:", target);
+        return;
+      }
+
+      // 2) Si está online y tiene id de servidor válido → borra en backend
+      if (navigator.onLine && r.id && !String(r.id).startsWith("local-")) {
+        try {
+          await API.del("/api/registros/" + r.id);
+          this.registros = this.registros.filter((x) => x !== r);
+          return;
+        } catch (e) {
+          console.warn("⚠️ No se pudo borrar en servidor, probando offline", e);
+        }
+      }
+
+      // 3) OFFLINE: borrar de la cola usando SIEMPRE el keyPath del store (local_id numérico)
       try {
-        await API.del('/api/registros/'+id);
-        this.registros = this.registros.filter(x=>x.id!==id);
-      } catch(e){
-        alert('No se pudo eliminar');
+        const db = await initDB();
+
+        const key = r.local_id; // ← CLAVE REAL DEL STORE
+        if (key === null || key === undefined) {
+          console.error("❌ Falta local_id, no se puede borrar offline", r);
+          alert("Error eliminando offline: falta local_id");
+          return;
+        }
+
+        await idbDelete(db, STORE_QUEUE, key);
+
+        // Quita de la UI comparando por local_id (no por id string)
+        this.registros = this.registros.filter((x) => String(x.local_id) !== String(key));
+
+        console.log("🗑️ Eliminado de cola local:", r);
+      } catch (e) {
+        console.error("❌ Error borrando de IndexedDB", e);
+        alert("Error eliminando offline");
       }
     }
   }
@@ -440,46 +538,46 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('destajosForm', destajosForm);
 });
 
-async function loginOffline(username, password) {
-    const db = await initDB(); // tu función initDB()
-    const tx = db.transaction('users', 'readonly');
-    const store = tx.objectStore('users');
-    const users = await store.getAll();
+// async function loginOffline(username, password) {
+//     const db = await initDB(); // tu función initDB()
+//     const tx = db.transaction('users', 'readonly');
+//     const store = tx.objectStore('users');
+//     const users = await store.getAll();
 
-    const user = users.find(u => u.username === username && u.password === password);
-    if(user){
-        // Guardar sesión offline
-        localStorage.setItem('currentUser', JSON.stringify(user));
-        alert("✅ Login offline exitoso");
-        return true;
-    } else {
-        alert("❌ Usuario o contraseña incorrecta");
-        return false;
-    }
-}
+//     const user = users.find(u => u.username === username && u.password === password);
+//     if(user){
+//         // Guardar sesión offline
+//         localStorage.setItem('currentUser', JSON.stringify(user));
+//         alert("✅ Login offline exitoso");
+//         return true;
+//     } else {
+//         alert("❌ Usuario o contraseña incorrecta");
+//         return false;
+//     }
+// }
 
 // Para online, llamas a la API Flask normalmente
-async function loginOnline(username, password) {
-    try {
-        const res = await fetch("/auth/login", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({username, password})
-        });
-        const data = await res.json();
-        if(data.success){
-            localStorage.setItem('currentUser', JSON.stringify(data.user));
-            alert("✅ Login online exitoso");
-            return true;
-        } else {
-            alert("❌ Usuario o contraseña incorrecta");
-            return false;
-        }
-    } catch(e){
-        console.warn("⚠️ No hay conexión, usando IndexedDB");
-        return loginOffline(username, password);
-    }
-}
+// async function loginOnline(username, password) {
+//     try {
+//         const res = await fetch("/auth/login", {
+//             method: "POST",
+//             headers: {"Content-Type": "application/json"},
+//             body: JSON.stringify({username, password})
+//         });
+//         const data = await res.json();
+//         if(data.success){
+//             localStorage.setItem('currentUser', JSON.stringify(data.user));
+//             alert("✅ Login online exitoso");
+//             return true;
+//         } else {
+//             alert("❌ Usuario o contraseña incorrecta");
+//             return false;
+//         }
+//     } catch(e){
+//         console.warn("⚠️ No hay conexión, usando IndexedDB");
+//         return loginOffline(username, password);
+//     }
+// }
 
 async function handleLogin() {
     const username = document.getElementById("username").value;

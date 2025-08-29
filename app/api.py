@@ -8,6 +8,11 @@ from .models import User, GHDestajo, GHEmpleado
 
 api_bp = Blueprint("api", __name__)
 
+from flask import current_app, request, jsonify
+from sqlalchemy import text
+from .extensions import db
+from sqlalchemy import create_engine
+
 @api_bp.get("/employees")
 @login_required
 def employees():
@@ -15,20 +20,43 @@ def employees():
     if not q:
         return jsonify([])
 
-    sql = text("""
-        SELECT nombreCompleto, apellidoCompleto, numeroDocumento
-        FROM GH_Empleados
-        WHERE estado = 'ACTIVO' 
-        AND (
-            LOWER(LTRIM(RTRIM(nombreCompleto))) LIKE LOWER(:q)
-            OR LOWER(LTRIM(RTRIM(apellidoCompleto))) LIKE LOWER(:q)
-            OR LOWER(LTRIM(RTRIM(nombreCompleto)) + ' ' + LTRIM(RTRIM(apellidoCompleto))) LIKE LOWER(:q)
-            OR CAST(numeroDocumento AS NVARCHAR(50)) LIKE :q
-        )
-        ORDER BY nombreCompleto
-    """)
+    if current_app.config["IS_ONLINE"]:
+        # 🔹 Query para SQL Server
+        sql = text("""
+            SELECT nombreCompleto, apellidoCompleto, numeroDocumento
+            FROM GH_Empleados
+            WHERE estado = 'ACTIVO' 
+            AND (
+                LOWER(LTRIM(RTRIM(nombreCompleto))) LIKE LOWER(:q)
+                OR LOWER(LTRIM(RTRIM(apellidoCompleto))) LIKE LOWER(:q)
+                OR LOWER(LTRIM(RTRIM(nombreCompleto)) + ' ' + LTRIM(RTRIM(apellidoCompleto))) LIKE LOWER(:q)
+                OR CAST(numeroDocumento AS NVARCHAR(50)) LIKE :q
+            )
+            ORDER BY nombreCompleto
+        """)
+        rows = db.session.execute(sql, {'q': f'%{q}%'}).mappings().all()
 
-    rows = db.session.execute(sql, {'q': f'%{q}%'}).mappings().all()
+    else:
+        # 🔹 Query para SQLite
+        sqlite_uri = current_app.config["SQLALCHEMY_DATABASE_URI_SQLITE"]
+        sqlite_engine = create_engine(sqlite_uri)
+
+        sql = text("""
+            SELECT nombreCompleto, apellidoCompleto, numeroDocumento
+            FROM GH_Empleados
+            WHERE estado = 'ACTIVO'
+            AND (
+                LOWER(TRIM(nombreCompleto)) LIKE LOWER(:q)
+                OR LOWER(TRIM(apellidoCompleto)) LIKE LOWER(:q)
+                OR LOWER(TRIM(nombreCompleto) || ' ' || TRIM(apellidoCompleto)) LIKE LOWER(:q)
+                OR CAST(numeroDocumento AS TEXT) LIKE :q
+            )
+            ORDER BY nombreCompleto
+        """)
+
+        with sqlite_engine.connect() as conn:
+            rows = conn.execute(sql, {'q': f'%{q}%'}).mappings().all()
+
     return jsonify([{
         'nombre': f"{r['nombreCompleto']} {r['apellidoCompleto']}".strip(),
         'documento': str(r['numeroDocumento'])
@@ -37,17 +65,41 @@ def employees():
 @api_bp.get("/destajos")
 @login_required
 def destajos_catalog():
-    q = request.args.get("q","")
-    sql = text("""
-        SELECT Id, Planta, Concepto, Valor
-        FROM GH_Destajos
-        WHERE Concepto LIKE :q
-        ORDER BY Concepto
-    """)
-    rows = db.session.execute(sql, {'q': f'%{q}%'}).mappings().all()
-    return jsonify([{
-        'id': int(r['Id']), 'planta': r['Planta'], 'concepto': r['Concepto'], 'valor': float(r['Valor'])
-    } for r in rows])
+    q = request.args.get("q", "").strip()
+
+    if current_app.config["IS_ONLINE"]:
+        # 🔹 Query para SQL Server
+        sql = text("""
+            SELECT Id, Planta, Concepto, Valor
+            FROM GH_Destajos
+            WHERE Concepto LIKE :q
+            ORDER BY Concepto
+        """)
+        rows = db.session.execute(sql, {'q': f'%{q}%'}).mappings().all()
+
+    else:
+        # 🔹 Query para SQLite
+        sqlite_uri = current_app.config["SQLALCHEMY_DATABASE_URI_SQLITE"]
+        sqlite_engine = create_engine(sqlite_uri)
+
+        sql = text("""
+            SELECT Id, Planta, Concepto, Valor
+            FROM GH_Destajos
+            WHERE Concepto LIKE :q
+            ORDER BY Concepto
+        """)
+        with sqlite_engine.connect() as conn:
+            rows = conn.execute(sql, {'q': f'%{q}%'}).mappings().all()
+
+    return jsonify([
+        {
+            'id': int(r['Id']),
+            'planta': r['Planta'],
+            'concepto': r['Concepto'],
+            'valor': float(r['Valor'])
+        }
+        for r in rows
+    ])
 
 @api_bp.post("/registros")
 @login_required
