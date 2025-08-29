@@ -5,7 +5,6 @@ from .routes import web_bp
 from .api import api_bp
 from .auth import auth_bp
 from .pwa import pwa_bp
-from .lab_demo import lab_bp
 from config import Config
 import socket
 import os
@@ -98,6 +97,5 @@ def create_app():
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(pwa_bp)
-    app.register_blueprint(lab_bp, url_prefix="/lab")
 
     return app
