@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#0ea5e9">
   
   <script src="/static/css/tailwind.min.css"></script>
+  <!-- <link rel="stylesheet" href="/static/css/tailwind.min.css"> -->
 
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -73,8 +74,8 @@
     {% block content %}{% endblock %}
   </main>
   
-  <script src="/static/js/indexedDB.js"></script>
-  <script src="/static/js/alpine.min.js" defer></script>
+  <script src="{{ url_for('static', filename='js/indexedDB.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/alpine.min.js') }}" defer></script>
 
   <script>
     document.addEventListener("DOMContentLoaded", async () =>{
@@ -86,7 +87,7 @@
   <!-- 👇 REGISTRO DEL SERVICE WORKER -->
   <script>
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/service-worker.js")
+    navigator.serviceWorker.register("/static/service-worker.js")
       .then(() => console.log("✅ Service Worker registrado"))
       .catch(err => console.error("❌ Error registrando SW:", err));
   }
