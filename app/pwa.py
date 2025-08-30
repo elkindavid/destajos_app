@@ -1,6 +1,6 @@
-from flask import Blueprint, send_from_directory
+from flask import Blueprint, send_from_directory, make_response
 
-pwa_bp = Blueprint("pwa", __name__)
+pwa_bp = Blueprint('pwa', __name__, static_folder='static')
 
 @pwa_bp.route('/manifest.json')
 def manifest():
@@ -8,4 +8,6 @@ def manifest():
 
 @pwa_bp.route('/service-worker.js')
 def service_worker():
-    return send_from_directory('static', 'service-worker.js')
+    response = make_response(send_from_directory('static', 'service-worker.js'))
+    response.headers['Content-Type'] = 'application/javascript'
+    return response
