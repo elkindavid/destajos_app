@@ -1,10 +1,19 @@
 const CACHE = 'destajos-cache-v1';
 const APP_SHELL = [
   '/',
+  '/templates/auth_change_password.html',
+  '/templates/auth_login.html',
+  '/templates/auth_register.html',
+  '/templates/base.html',
+  '/templates/consultar.html',
+  '/templates/destajos.html',
+  '/templates/home.html',
+  '/templates/usuarios_listado.html',
+  '/static/css/custom.css',
+  '/static/css/tailwind.min.css',
   '/static/js/indexedDB.js',
   '/static/js/alpine.min.js',
-  '/static/css/tailwind.min.css',
-  '/manifest.webmanifest'
+  '/manifest.json',
 ];
 
 self.addEventListener('install', (e)=>{
