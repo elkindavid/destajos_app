@@ -1,8 +1,6 @@
 const CACHE = "destajos-cache-v1";
 const APP_SHELL = [
   "/",
-  "/templates/base.html",
-  "/templates/consultar.html",
   "/templates/destajos.html",
   "/templates/home.html",
   "/templates/usuarios_listado.html",
