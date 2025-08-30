@@ -2,7 +2,6 @@ const CACHE = "destajos-cache-v1";
 const APP_SHELL = [
   "/",
   "/manifest.json",
-  "/offline.html",
   "/static/css/custom.css",
   "/static/css/tailwind.min.css",
   "/static/js/indexedDB.js",
