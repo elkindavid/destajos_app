@@ -1,8 +1,6 @@
 const CACHE = "destajos-cache-v1";
 const APP_SHELL = [
   "/",
-  "/templates/usuarios_listado.html",
-  "/templates/auth_login.html",
   "/manifest.json",
   "/offline.html",
   "/static/css/custom.css",
