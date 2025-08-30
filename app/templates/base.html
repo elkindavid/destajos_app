@@ -4,11 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}App de Destajos{% endblock %}</title>
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <meta name="theme-color" content="#0ea5e9">
   
   <script src="/static/css/tailwind.min.css"></script>
-  <!-- <link rel="stylesheet" href="/static/css/tailwind.min.css"> -->
 
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -86,12 +85,13 @@
 
   <!-- 👇 REGISTRO DEL SERVICE WORKER -->
   <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/static/service-worker.js")
-      .then(() => console.log("✅ Service Worker registrado"))
-      .catch(err => console.error("❌ Error registrando SW:", err));
-  }
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("{{ url_for('pwa.service_worker') }}")
+        .then(() => console.log("✅ Service Worker registrado"))
+        .catch(err => console.error("❌ Error registrando SW:", err));
+    }
   </script>
+
 
 </body>
 </html>
