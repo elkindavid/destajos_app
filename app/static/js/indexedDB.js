@@ -294,7 +294,7 @@ window.consultarView = function(){
       try {
         // 1️⃣ Inicializar fechas por defecto
         const today = new Date();
-        this.desde = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`; // primer día del mes
+        this.desde = today.toISOString().split('T')[0]; // hoy
         this.hasta = today.toISOString().split('T')[0]; // hoy
 
         // 2️⃣ Cargar destajos
