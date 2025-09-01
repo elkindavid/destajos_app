@@ -5,20 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}App de Destajos{% endblock %}</title>
   <link rel="manifest" href="/manifest.json">
-
   <meta name="theme-color" content="#0ea5e9">
-  
   <script src="/static/css/tailwind.min.css"></script>
-
-  <!-- 👇 REGISTRO DEL SERVICE WORKER -->
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js")
-        .then(() => console.log("✅ Service Worker registrado"))
-        .catch(err => console.error("❌ Error registrando SW:", err));
-    }
-  </script>
-
 
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -92,6 +80,15 @@
       await initDB(); // Inicializa IndexedDB
       console.log("Base de datos lista para usarse");
     })
+  </script>
+
+   <!-- 👇 REGISTRO DEL SERVICE WORKER -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js")
+        .then(() => console.log("✅ Service Worker registrado"))
+        .catch(err => console.error("❌ Error registrando SW:", err));
+    }
   </script>
 
 </body>
