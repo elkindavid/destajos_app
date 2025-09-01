@@ -1,4 +1,4 @@
-const CACHE = "destajos-cache-v1";
+const CACHE = "destajos-cache-v3";
 const APP_SHELL = [
   "/",
   "/templates/offline.html",

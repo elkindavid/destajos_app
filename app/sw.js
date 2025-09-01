@@ -33,18 +33,17 @@ if (!self.define) {
   }
 }
 
-define(["./static/js/workbox-dab8777c"], function (e) {
+define(["./static/js/workbox-dab8777c"], function (workbox) {
   "use strict";
 
-  // Escucha mensajes desde la app
   self.addEventListener("message", e => {
     if (e.data && e.data.type === "SKIP_WAITING") {
       self.skipWaiting();
     }
   });
 
-  // Archivos a cachear y servir offline
-  e.precacheAndRoute(
+  // Precaching con Workbox (esto ya crea el Cache Storage automáticamente)
+  workbox.precacheAndRoute(
     [
       { url: "static/css/custom.css", revision: "d41d8cd98f00b204e9800998ecf8427e" },
       { url: "static/css/input.css", revision: "7294805e1e94a856333999f9c0ad4814" },
@@ -56,12 +55,50 @@ define(["./static/js/workbox-dab8777c"], function (e) {
       { url: "static/js/indexedDB.js", revision: "dd05c9ccc67b18ca6b968c5e4fec35ec" },
       { url: "static/manifest.json", revision: "44af4eb434f84c1e6088907c8dca47db" },
       { url: "static/screenshots/screenshot1.png", revision: "095130d2d0fb0591fc030d05f8c30a51" },
-      { url: "static/screenshots/screenshot2.png", revision: "f5be7395849940abbeb8f6c273f7e917" }
+      { url: "static/screenshots/screenshot2.png", revision: "f5be7395849940abbeb8f6c273f7e917" },
+      { url: "static/offline.html", revision: "123456" }
     ],
     {
       ignoreURLParametersMatching: [/^utm_/, /^fbclid$/]
     }
   );
+
+  self.addEventListener("activate", (e) => {
+    e.waitUntil(
+      caches.keys().then(keys =>
+        Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      )
+    );
+    self.clients.claim();
+  });
+
+  // Fetch con fallback
+  self.addEventListener("fetch", (e) => {
+    const url = new URL(e.request.url);
+
+    if (url.pathname.startsWith("/api/")) {
+      e.respondWith(
+        fetch(e.request).catch(() =>
+          new Response(JSON.stringify({ offline: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        )
+      );
+    } else {
+      e.respondWith(
+        caches.match(e.request).then((res) => {
+          return res || fetch(e.request).catch(() =>
+            caches.match("static/offline.html").then((fallback) =>
+              fallback || new Response("Sin conexión", {
+                status: 503,
+                headers: { "Content-Type": "text/plain" },
+              })
+            )
+          );
+        })
+      );
+    }
+  });
 });
 
-//# sourceMappingURL=sw.js.map
