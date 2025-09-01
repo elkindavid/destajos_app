@@ -17,13 +17,6 @@ def can_connect_sqlserver(host, port, timeout=3):
             return True
     except OSError:
         return False
-    
-def server_online(host, port, timeout=2):
-    try:
-        socket.create_connection((host, port), timeout)
-        return True
-    except OSError:
-        return False
 
 def sync_sqlite(app):
     """Sincroniza datos de SQL Server a SQLite (bind local en raíz)."""
@@ -86,7 +79,7 @@ def create_app():
     sql_server_host = "190.255.33.10"
     sql_server_port = 2500
     # is_online = can_connect_sqlserver(sql_server_host, sql_server_port)
-    is_online = server_online(sql_server_host, sql_server_port)
+    is_online = can_connect_sqlserver(sql_server_host, sql_server_port)
 
     
     app.config["IS_ONLINE"] = is_online   # 👈 guardar el flag en config
