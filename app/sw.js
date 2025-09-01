@@ -3,6 +3,13 @@ const CACHE_NAME = "destajos-cache-v1";
 
 // Archivos a precachear (todos los que tienes en Cache Storage)
 const PRECACHE_URLS = [
+  "/",                // home.html
+  "/destajos",        // destajos.html
+  "/consultar",       // consultar.html
+  "/usuarios",        // usuarios_listado.html
+  "/login",           // auth_login.html
+  "/register",        // auth_register.html
+  "/change-password", // auth_change_password.html
   "/static/css/custom.css",
   "/static/css/input.css",
   "/static/css/tailwind.min.css",
@@ -16,6 +23,7 @@ const PRECACHE_URLS = [
   "/static/screenshots/screenshot2.png",
   "/static/offline.html"
 ];
+
 
 // Instalación del SW y precache
 self.addEventListener("install", event => {
