@@ -33,7 +33,7 @@ if (!self.define) {
   }
 }
 
-define(["./workbox-dab8777c"], function (e) {
+define(["./static/js/workbox-dab8777c.js"], function (e) {
   "use strict";
 
   // Escucha mensajes desde la app
