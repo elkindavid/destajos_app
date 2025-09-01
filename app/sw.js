@@ -46,33 +46,50 @@ self.addEventListener("activate", event => {
   );
 });
 
-// Fetch handler con manejo offline
+// Manejo de peticiones (fetch)
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
 
-  // API: respuesta offline con JSON
+  // --- 1. API: Respuesta offline en JSON ---
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(event.request).catch(() =>
-        new Response(JSON.stringify({ offline: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        })
+        new Response(
+          JSON.stringify({ offline: true, message: "Sin conexión a la API" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        )
       )
     );
-    return;
+    return; // 👈 importante: salir aquí
   }
 
-  // Archivos estáticos + fallback offline.html
+  // --- 2. Archivos estáticos (HTML, CSS, JS, imágenes) ---
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then(res => {
-      return res || fetch(event.request).catch(() =>
-        caches.match("/static/offline.html", { ignoreSearch: true })
-          .then(fallback => fallback || new Response("Sin conexión", {
-            status: 503,
-            headers: { "Content-Type": "text/plain" }
-          }))
-      );
+    caches.match(event.request, { ignoreSearch: true }).then(cacheRes => {
+      // Si está en caché, devuélvelo
+      if (cacheRes) {
+        return cacheRes;
+      }
+
+      // Si no está en caché, intenta desde la red
+      return fetch(event.request).catch(() => {
+        // Si falla (sin conexión), dar fallback
+        if (event.request.destination === "document") {
+          return caches.match("/static/offline.html", { ignoreSearch: true });
+        }
+        if (event.request.destination === "image") {
+          return caches.match("/static/images/fallback.png", { ignoreSearch: true });
+        }
+        // Fallback genérico
+        return new Response("Sin conexión y recurso no disponible en caché", {
+          status: 503,
+          headers: { "Content-Type": "text/plain" }
+        });
+      });
     })
   );
 });
+
